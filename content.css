@@ -1,0 +1,18 @@
+/* Styles for the injected badge and modal */
+.jobtrust-highlight {
+    background-color: #fff3cd !important;
+    border: 2px solid #ffc107 !important;
+    border-radius: 4px !important;
+    padding: 8px !important;
+    margin: 4px 0 !important;
+}
+
+.jobtrust-warning {
+    position: relative;
+}
+
+.jobtrust-warning::before {
+    content: "⚠️";
+    margin-right: 8px;
+    font-size: 14px;
+}

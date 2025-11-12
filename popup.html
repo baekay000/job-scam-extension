@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            width: 350px;
+            padding: 16px;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 16px;
+        }
+        .header h1 {
+            font-size: 18px;
+            margin: 0;
+            color: #2563eb;
+        }
+        .analyze-btn {
+            width: 100%;
+            padding: 12px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 12px;
+        }
+        .analyze-btn:hover {
+            background: #1d4ed8;
+        }
+        .analyze-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .result {
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 12px;
+            display: none;
+        }
+        .result.safe {
+            background: #d1fae5;
+            border: 1px solid #10b981;
+        }
+        .result.warning {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+        }
+        .result.danger {
+            background: #fee2e2;
+            border: 1px solid #ef4444;
+        }
+        .loading {
+            text-align: center;
+            padding: 8px;
+            display: none;
+        }
+        .spinner {
+            border: 2px solid #f3f4f6;
+            border-top: 2px solid #2563eb;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .red-flag {
+            background: white;
+            padding: 4px 8px;
+            margin: 4px 0;
+            border-radius: 4px;
+            font-size: 12px;
+            border-left: 3px solid #ef4444;
+        }
+        .confidence-bar {
+            height: 6px;
+            background: #e5e7eb;
+            border-radius: 3px;
+            margin: 8px 0;
+            overflow: hidden;
+        }
+        .confidence-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+        .stats {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1> JobTrust AI</h1>
+        <p>Real-time Job Scam Detection</p>
+    </div>
+
+    <button class="analyze-btn" id="analyzeBtn">
+         Analyze Current Job
+    </button>
+
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Analyzing job posting...</p>
+    </div>
+
+    <div class="result" id="result">
+        <h3 id="resultTitle">Analysis Result</h3>
+        <div class="confidence-bar">
+            <div class="confidence-fill" id="confidenceBar"></div>
+        </div>
+        <p id="resultText">Analysis will appear here</p>
+        <div id="redFlags"></div>
+        <div class="stats">
+            <span id="confidenceText">Confidence: 0%</span> • 
+            <span id="analysisTime">Time: 0s</span>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
