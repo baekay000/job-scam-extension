@@ -114,9 +114,9 @@ JOB POSTING:
 OUTPUT FORMAT (exactly):
 Verdict: Real|Fake
 Reasons:
-- short reason #1 (quote tiny snippet from CONTEXT or JOB POSTING if useful)
-- short reason #2 (optional)
-- short reason #3 (optional)
+- reason #1 (quote tiny snippet from CONTEXT or JOB POSTING if useful)
+- reason #2 (optional)
+- reason #3 (optional)
 """.strip()
 
 def ollama_run(prompt: str, model=MODEL, timeout=OLLAMA_TIMEOUT) -> str:
