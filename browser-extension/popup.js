@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const analysisTime = document.getElementById('analysisTime');
     const redFlagsDiv = document.getElementById('redFlags');
 
-    // Check if we're on a job page and enable/disable button
+    // Check if we are on a job page and enable/disable button
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
         const currentTab = tabs[0];
         const isJobPage = isJobListingPage(currentTab.url);
@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error('Could not extract job information from this page');
             }
 
-            // Display the job title we're analyzing
+            // Display the job title we are analyzing
             console.log('Analyzing job:', jobData.title);
             
             const analysisResult = await analyzeJobWithAPI(jobData.text, jobData.title, jobData.company);
