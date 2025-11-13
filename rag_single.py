@@ -1,39 +1,27 @@
 #!/usr/bin/env python3
 # rag_single_simple.py — minimal, fast, no-LLM "RAG"
-# - Loads ./data/*.txt
-# - Chunks + TF-IDF (1–2 grams, sublinear TF, min_df=2) and retrieves TOP_K
-# - Scores with: exemplar similarity (fake - real) + red/green flag counts + tiny heuristics
-# - Prints:
-#     Verdict: Real|Fake
-#     Reasons:
-#     - ...
-#     - ...
-#     - ...
+# Printing rewritten for natural explanations
 
 import sys, os, re, glob
 from pathlib import Path
 from typing import List, Tuple
-
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# -------- Config (override with env) --------
 DATA_DIR        = Path("data")
-TOP_K           = int(os.environ.get("RAG_TOPK", "6"))       # retrieval breadth
-CHUNK_SIZE      = int(os.environ.get("RAG_CHUNK", "450"))    # smaller chunks improve recall
+TOP_K           = int(os.environ.get("RAG_TOPK", "6"))
+CHUNK_SIZE      = int(os.environ.get("RAG_CHUNK", "450"))
 CHUNK_OVERLAP   = int(os.environ.get("RAG_OVERLAP", "90"))
 MAX_JOB_CHARS   = int(os.environ.get("RAG_JOB_CHARS", "1500"))
-SHOW_TOPK       = bool(int(os.environ.get("RAG_SHOW_TOPK", "1")))  # 1: print chunk names at end
+SHOW_TOPK       = bool(int(os.environ.get("RAG_SHOW_TOPK", "1")))
 
-# Tiny keyword nudges (cheap heuristics)
 WATCH_TERMS = [
     "signing bonus", "onboarding bonus", "gift card", "crypto", "google form",
     "telegram", "whatsapp", "cash app", "venmo"
 ]
 ATS_WHITELIST = r"\b(workday|greenhouse|lever|smartrecruiters)\b"
 
-# -------- Small helpers --------
 def _read_txt(p: Path) -> str:
     return p.read_text(encoding="utf-8", errors="ignore")
 
@@ -49,7 +37,6 @@ def _chunk_text(text: str, size=CHUNK_SIZE, overlap=CHUNK_OVERLAP) -> List[str]:
     return out
 
 def _load_corpus() -> Tuple[List[str], List[str]]:
-    """Return passages and metadata labels from ./data/*.txt."""
     if not DATA_DIR.exists():
         return [], []
     passages, metas = [], []
@@ -63,7 +50,6 @@ def _load_corpus() -> Tuple[List[str], List[str]]:
             metas.append(f"{name}#chunk{idx}")
     return passages, metas
 
-# -------- Cheap signals (regex) --------
 RF_PATTERNS = [
     ("RF-04", r"\b(no interview|required today|instant hire|start immediately|telegram|whatsapp)\b"),
     ("RF-05", r"\b(ssn|social security|bank account|routing number|passport|id scan|remote desktop)\b"),
@@ -81,7 +67,6 @@ def _rf_gf_counts(job_text: str):
     gf = [code for code, pat in GF_PATTERNS if re.search(pat, t, re.I)]
     return rf, gf
 
-# -------- Exemplars (optional but helpful) --------
 def _load_exemplar_sets():
     fake_fp = DATA_DIR / "fake_job_exemplars.txt"
     real_fp = DATA_DIR / "real_job_exemplars.txt"
@@ -89,9 +74,7 @@ def _load_exemplar_sets():
     real_txt = _read_txt(real_fp) if real_fp.exists() else ""
     return fake_txt.strip(), real_txt.strip()
 
-# -------- Main simple RAG --------
 def main():
-    # Read job posting from --text / --file / stdin
     args = sys.argv[1:]
     job_text = ""
     if "--text" in args:
@@ -105,25 +88,25 @@ def main():
     else:
         job_text = sys.stdin.read()
 
-    # Clean & trim
     job_text = (job_text or "")
     q = re.sub(r'https?://\S+|www\.\S+|[\w\.-]+@[\w\.-]+', ' ', job_text)
     q = re.sub(r'\s+', ' ', q).strip()[:MAX_JOB_CHARS]
     if not q:
-        print("Verdict: Fake\nReasons:\n- No job text provided")
+        print("Verdict: Fake")
+        print("Reasons:\n- The text is empty, which makes it impossible to assess authenticity.")
         return
 
     passages, metas = _load_corpus()
     if not passages:
-        # With no corpus, be conservative but not overly fake-happy
         rf_hits, gf_hits = _rf_gf_counts(q)
         if "RF-05" in rf_hits or ("RF-04" in rf_hits and len(rf_hits) >= 2):
-            print("Verdict: Fake\nReasons:\n- Strong red flags: " + ", ".join(sorted(set(rf_hits))))
+            print("Verdict: Fake")
+            print("Reasons:\n- The job description includes obvious scam indicators such as requests for personal information or instant hiring promises.")
         else:
-            print("Verdict: Real\nReasons:\n- No corpus found and no strong red flags detected")
+            print("Verdict: Real")
+            print("Reasons:\n- The posting doesn’t show any classic scam signs, such as requests for money or personal data.")
         return
 
-    # Vectorizer: word 1–2 grams, sublinear TF, ignore singleton noise
     vec = TfidfVectorizer(
         stop_words="english",
         ngram_range=(1, 2),
@@ -132,12 +115,11 @@ def main():
         max_df=0.95,
     )
     X = vec.fit_transform(passages + [q])
-    Q = X[-1]   # query
-    C = X[:-1]  # corpus
+    Q = X[-1]
+    C = X[:-1]
     sims = cosine_similarity(Q, C).flatten()
     order = sims.argsort()[::-1][:TOP_K]
 
-    # Exemplar similarity tilt
     fake_ex, real_ex = _load_exemplar_sets()
     sim_fake = sim_real = 0.0
     if fake_ex and real_ex:
@@ -145,10 +127,8 @@ def main():
         sim_fake = float(cosine_similarity(Q, EX[0]))
         sim_real = float(cosine_similarity(Q, EX[1]))
 
-    # RF / GF counts
     rf_hits, gf_hits = _rf_gf_counts(q)
 
-    # Retrieved-chunk source bias (very tiny)
     topk_bias = 0.0
     topk_names = []
     for i in order:
@@ -158,50 +138,49 @@ def main():
         if "fake_job_exemplars.txt" in base: topk_bias += 0.10
         if "real_job_exemplars.txt" in base: topk_bias -= 0.10
 
-    # Watch-terms micro-signal
     hits = sum(1 for w in WATCH_TERMS if w in q.lower())
     watch_bonus = 0.05 * hits
-
-    # ATS whitelist helps legit
     ats_bonus = -0.20 if re.search(ATS_WHITELIST, q, re.I) else 0.0
-
-    # Short posts are suspicious
     short_bump = 0.15 if len(q) < 120 else 0.0
 
-    # ---------- Simple score (keep tiny & interpretable) ----------
-    score  = (sim_fake - sim_real)        # exemplar tilt ( + => fake )
-    score += 0.40 * len(rf_hits)          # red flags push to fake
-    score -= 0.35 * len(gf_hits)          # green flags pull to real
-    score += topk_bias                    # tiny bias from retrieved names
-    score += watch_bonus                  # tiny scam terms
-    score += short_bump                   # very short text bump toward fake
-    score += ats_bonus                    # ATS presence pulls toward real
+    score  = (sim_fake - sim_real)
+    score += 0.40 * len(rf_hits)
+    score -= 0.35 * len(gf_hits)
+    score += topk_bias
+    score += watch_bonus
+    score += short_bump
+    score += ats_bonus
 
-    # Slight margin needed to call Fake
     verdict = "Fake" if score > 0.15 else "Real"
 
-    # ---------- Human-friendly reasons ----------
-    reasons = []
-    if rf_hits:
-        reasons.append(f"- Red flags: {', '.join(sorted(set(rf_hits)))}")
-    if re.search(ATS_WHITELIST, q, re.I):
-        reasons.append("- ATS platform mentioned (Workday/Lever/Greenhouse/SmartRecruiters)")
-    if sim_fake or sim_real:
-        reasons.append(f"- Exemplar similarity tilt: fake={sim_fake:.2f}, real={sim_real:.2f}")
-    if hits:
-        reasons.append(f"- Risk terms present: {hits} hit(s)")
-    if len(q) < 120:
-        reasons.append("- Very short posting text")
-    if not reasons:
-        reasons.append("- Decision based on similarity to retrieved context and simple rules")
-
+    # ----- human explanations -----
     print("Verdict:", verdict)
     print("Reasons:")
-    for r in reasons[:3]:
-        print(r)
+    if verdict == "Fake":
+        if "RF-05" in rf_hits:
+            print("- It asks for sensitive personal or financial details (like SSN or bank info).")
+        if len(q) < 120:
+            print("- The post is unusually short, which is typical of copy-paste scam ads.")
+        if hits:
+            print("- It contains suspicious terms (e.g., crypto, gift cards, or instant bonuses).")
+        if re.search(r"telegram|whatsapp", q, re.I):
+            print("- It references messaging apps often used by scammers (Telegram, WhatsApp).")
+        if sim_fake > sim_real:
+            print("- Its phrasing resembles previously known fake job exemplars.")
+        if not (rf_hits or hits):
+            print("- It lacks specific company or job details, which often signals inauthenticity.")
+    else:
+        if re.search(ATS_WHITELIST, q, re.I):
+            print("- It mentions a legitimate applicant-tracking system (like Workday or Lever).")
+        if gf_hits:
+            print("- It includes standard professional sections such as ‘Responsibilities’ and ‘Requirements’.")
+        if sim_real >= sim_fake:
+            print("- Its writing style is closer to genuine job descriptions than scam exemplars.")
+        if not (gf_hits or re.search(ATS_WHITELIST, q, re.I)):
+            print("- It provides enough structured information to appear legitimate.")
 
     if SHOW_TOPK:
-        print("\nTop-K passages:")
+        print("\nTop-K supporting passages used:")
         for m in topk_names:
             print("•", m)
 
