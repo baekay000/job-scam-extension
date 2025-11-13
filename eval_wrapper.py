@@ -45,13 +45,19 @@ def run_rag(job_text: str) -> tuple[int, str]:
         return 2, f"[RAG error] {e}"
 
 def run_mistral_plain(job_text: str) -> tuple[int, str]:
-    """Call Mistral via Ollama CLI (no RAG). Returns the same plain text format."""
+    """Call Mistral via Ollama CLI (no RAG). Same output rules as RAG."""
     prompt = f"""You are a careful reviewer for job posting fraud.
+Use the JOB POSTING directly for evidence. If signals are weak or contradictory, return Uncertain.
+
+STRICT OUTPUT RULES:
+- No markdown.
+- Print exactly two sections: 'Verdict:' then 'Reasons:' with 1-3 bullets.
+- Verdict must be exactly one of: Real, Fake, Uncertain.
 
 JOB POSTING:
 {job_text}
 
-Return EXACTLY this format (no markdown, no extra text):
+Return EXACTLY this:
 
 Verdict: Real|Fake|Uncertain
 Reasons:
