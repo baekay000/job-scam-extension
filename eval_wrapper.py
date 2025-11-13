@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-# eval_wrapper.py — compares your RAG (rag_single.py) vs base Mistral (no RAG)
-# Outputs confusion matrices + accuracy bar. Also supports single-text quick check.
+# eval_wrapper.py — compare your RAG (rag_single_llm_simple.py) vs base Mistral (no RAG)
+# - Batch mode over CSV: saves confusion matrices + accuracy bar + evaluation_results.csv
+# - Single-text mode: prints both raw outputs + parsed verdicts
 
 import os, sys, re, json, argparse, subprocess
 from pathlib import Path
@@ -9,101 +10,130 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score
 
-RAG_PROG       = "rag_single.py"
-OLLAMA_URL     = "http://localhost:11434/api/generate"
-MISTRAL_MODEL  = "mistral:7b"      # `ollama pull mistral:7b`
-TIMEOUT_SEC    = 90
-LABELS         = [0,1,2]           # 0=Real, 1=Fake, 2=Unknown
-LABEL_NAMES    = ["Real","Fake","Unknown"]
+# ---------- Config ----------
+RAG_PROG       = os.environ.get("RAG_PROG", "rag_single_llm_simple.py")  # set to your RAG filename
+MISTRAL_MODEL  = os.environ.get("MISTRAL_MODEL", "mistral:7b")           # `ollama pull mistral:7b`
+TIMEOUT_SEC    = int(os.environ.get("EVAL_TIMEOUT", "180"))              # allow for first-load
+RETRY_WARMUP   = int(os.environ.get("EVAL_RETRY_WARMUP", "1"))           # 1 = try a warmup if first call fails
+LABELS         = [0, 1, 2]                                               # 0=Real, 1=Fake, 2=Unknown
+LABEL_NAMES    = ["Real", "Fake", "Unknown"]
 
+# ---------- Parsers ----------
 def _parse_verdict(text: str) -> int:
-    """Parse 'Verdict: Real|Fake|Uncertain' (case-insensitive) to {0,1,2}, tolerant of markdown."""
+    """
+    Accepts:
+      Verdict: Real|Fake|Uncertain
+    (case-insensitive; tolerates markdown/HTML noise)
+    Returns 0/1/2.
+    """
     if not text:
         return 2
     t = text.strip()
-    # remove simple markdown/HTML noise and normalize spaces
-    t = re.sub(r"\*\*|__", "", t)                  # strip **bold** and __underline__
-    t = re.sub(r"</?[^>]+>", "", t)                # strip simple HTML tags if any
-    t = re.sub(r"[ \t]+", " ", t)                  # collapse spaces
-    # match on its own line, anywhere
+    t = re.sub(r"\*\*|__", "", t)             # strip bold/underline
+    t = re.sub(r"</?[^>]+>", "", t)           # strip simple HTML tags
+    t = re.sub(r"[ \t]+", " ", t)
     m = re.search(r"(?im)^\s*verdict:\s*(real|fake|uncertain)\b", t)
     if not m:
+        # gentle fallback: if it says fake but not real → Fake; real but not fake → Real; else Unknown
+        low = t.lower()
+        if "fake" in low and "real" not in low:
+            return 1
+        if "real" in low and "fake" not in low:
+            return 0
         return 2
     v = m.group(1).lower()
     return 0 if v == "real" else 1 if v == "fake" else 2
 
+# ---------- Executors ----------
 def run_rag(job_text: str) -> tuple[int, str]:
-    """Call rag_single.py and parse plain-text verdict."""
+    """Call your RAG script and parse 'Verdict:'."""
     try:
         p = subprocess.run(
             [sys.executable, RAG_PROG, "--text", job_text],
             capture_output=True, text=True, timeout=TIMEOUT_SEC
         )
-        out = (p.stdout or "") + (("\n"+p.stderr) if p.stderr else "")
+        out = (p.stdout or "") + (("\n" + p.stderr) if p.stderr else "")
         return _parse_verdict(out), out
     except Exception as e:
         return 2, f"[RAG error] {e}"
 
 def run_mistral_plain(job_text: str) -> tuple[int, str]:
-    """Call Mistral via Ollama CLI (no RAG). Same output rules as RAG."""
-    prompt = f"""You are a careful reviewer for job posting fraud.
-Use the JOB POSTING directly for evidence. If signals are weak or contradictory, return Uncertain.
+    """
+    Call base Mistral via Ollama CLI (no RAG).
+    Output format mirrors the RAG script to keep parsing identical.
+    Warm-up retry helps on first model load.
+    """
+    prompt = f"""You are reviewing a job posting for authenticity.
+Use ONLY the job text. Be decisive; if evidence is contradictory, choose the better-supported label.
 
-STRICT OUTPUT RULES:
-- No markdown.
-- Print exactly two sections: 'Verdict:' then 'Reasons:' with 1-3 bullets.
-- Verdict must be exactly one of: Real, Fake, Uncertain.
-
-JOB POSTING:
-{job_text}
-
-Return EXACTLY this:
-
+Return EXACTLY this format (no markdown, no extra text):
 Verdict: Real|Fake|Uncertain
 Reasons:
 - short reason #1
-- short reason #2
+- short reason #2 (optional)
 - short reason #3 (optional)
-"""
-    try:
-        p = subprocess.run(
-            ["ollama", "run", MISTRAL_MODEL],
-            input=prompt,
-            text=True,
-            capture_output=True,
-            timeout=TIMEOUT_SEC
-        )
-        out = (p.stdout or "") + (("\n"+p.stderr) if p.stderr else "")
-        return _parse_verdict(out), out
-    except Exception as e:
-        return 2, f"[Mistral error] {e}"
 
+JOB POSTING:
+{job_text}
+""".strip()
+
+    cmd = ["ollama", "run", MISTRAL_MODEL]
+    tries = 1 + max(0, RETRY_WARMUP)
+    last_err = ""
+    for _ in range(tries):
+        try:
+            p = subprocess.run(
+                cmd, input=prompt, text=True, capture_output=True, timeout=TIMEOUT_SEC
+            )
+            out = (p.stdout or "").strip()
+            if out:
+                return _parse_verdict(out), out
+            last_err = (p.stderr or "").strip()
+        except subprocess.TimeoutExpired:
+            last_err = f"timeout after {TIMEOUT_SEC}s"
+
+        # warm up model before retry
+        try:
+            subprocess.run(["ollama", "run", MISTRAL_MODEL, "ok"], text=True, capture_output=True, timeout=30)
+        except Exception:
+            pass
+
+    return 2, f"[Mistral error] {last_err or 'no output'}"
+
+# ---------- CSV utils ----------
 def _combine_text_row(row: pd.Series) -> str:
     parts = []
-    for col, val in row.items():
-        if pd.isna(val): continue
+    for _, val in row.items():
+        if pd.isna(val): 
+            continue
         s = str(val)
-        if len(s) < 3: continue
+        if len(s) < 3: 
+            continue
         parts.append(s)
     return "\n".join(parts)[:2000]
 
 def load_dataset(path: str) -> tuple[pd.DataFrame, str]:
-    """Auto-detect label col (0/1[/2]) and make a combined text column."""
+    """
+    Heuristically detect a label column with {0,1[,2]} and build a combined text column.
+    Returns df[[__text__, __label__]], label_col_name
+    """
     df = pd.read_csv(path, encoding="utf-8", on_bad_lines="skip")
     label_col = None
     for c in df.columns[::-1]:
         try:
             vals = pd.to_numeric(df[c], errors="coerce").dropna().unique().tolist()
             if set(vals).issubset({0,1,2}) and len(vals) > 0:
-                label_col = c; break
+                label_col = c
+                break
         except Exception:
             pass
     if label_col is None:
         label_col = df.columns[-1]
     df["__text__"]  = df.apply(_combine_text_row, axis=1)
     df["__label__"] = pd.to_numeric(df[label_col], errors="coerce").fillna(2).astype(int)
-    return df[["__text__","__label__"]], label_col
+    return df[["__text__", "__label__"]], label_col
 
+# ---------- Plots ----------
 def plot_results(y_true, y_rag, y_mis):
     acc_rag = accuracy_score(y_true, y_rag)
     acc_mis = accuracy_score(y_true, y_mis)
@@ -129,6 +159,7 @@ def plot_results(y_true, y_rag, y_mis):
 
     return acc_rag, acc_mis
 
+# ---------- Main ----------
 def main():
     ap = argparse.ArgumentParser()
     mode = ap.add_mutually_exclusive_group(required=True)
@@ -138,7 +169,7 @@ def main():
     ap.add_argument("--max", type=int, default=20, help="Max rows for batch eval")
     args = ap.parse_args()
 
-    # Single quick compare (no plots, prints both verdicts)
+    # Single-text quick compare
     if args.text or args.file:
         job_text = args.text if args.text else Path(args.file).read_text(encoding="utf-8", errors="ignore")
         job_text = job_text.strip()
@@ -147,15 +178,16 @@ def main():
         rag_label, rag_raw = run_rag(job_text)
         mis_label, mis_raw = run_mistral_plain(job_text)
 
-        def _label_name(i): return LABEL_NAMES[i] if i in (0,1,2) else "Unknown"
+        def _name(i): return LABEL_NAMES[i] if i in (0,1,2) else "Unknown"
         print("RAG Output:\n" + rag_raw.strip())
         print("\nMistral (no RAG) Output:\n" + mis_raw.strip())
-        print(f"\nParsed Verdicts → RAG: {_label_name(rag_label)} | Mistral: {_label_name(mis_label)}")
+        print(f"\nParsed Verdicts → RAG: {_name(rag_label)} | Mistral: {_name(mis_label)}")
         sys.exit(0)
 
-    # Batch eval (plots + CSV)
+    # Batch eval
     df, label_col = load_dataset(args.dataset)
-    if args.max: df = df.head(args.max)
+    if args.max:
+        df = df.head(args.max)
     print(f"Evaluating {len(df)} samples from '{args.dataset}' (label column: '{label_col}')")
 
     y_true = df["__label__"].tolist()
