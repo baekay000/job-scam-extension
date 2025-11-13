@@ -1,0 +1,96 @@
+[GF-01] Verified Corporate Identity
+Description:
+Employer domain, company name, and job title align clearly with legitimate sources.
+Evidence:
+- Email ends with verified company domain (@microsoft.com, @kroger.com).
+- Company website and location match job description.
+- Employer has active LinkedIn or Glassdoor profile.
+
+[GF-02] Structured, Complete Job Details
+Description:
+Legitimate posts specify clear roles, responsibilities, and qualifications.
+Evidence:
+- Headings like “Responsibilities”, “Qualifications”, “Benefits”.
+- Tasks use professional verbs (“Design”, “Implement”, “Analyze”).
+- Mentions department or supervisor.
+
+[GF-03] Realistic Compensation & Requirements
+Description:
+Pay range and experience expectations are coherent with market norms.
+Evidence:
+- Salary aligns with industry and region.
+- Requirements match pay level and seniority.
+- No “$120/hr no experience” type claims.
+
+[GF-04] Professional Communication Channel
+Description:
+Official, traceable contact and application methods are used.
+Evidence:
+- Applications through ATS (Workday, Lever, Greenhouse).
+- Recruiter email on company domain or verified LinkedIn.
+- No off-platform screening (Telegram, WhatsApp).
+
+[GF-05] Traceable Company Presence
+Description:
+Company has verifiable, active digital footprint.
+Evidence:
+- Career page on company website.
+- Consistent listings on LinkedIn or Indeed.
+- Public news or legal registration confirms existence.
+
+[GF-06] Reasonable Hiring Timeline
+Description:
+Hiring process includes clear stages and expected duration.
+Evidence:
+- Mentions interview process and deadlines.
+- No instant-hire or same-day offers.
+- States review or background check steps.
+
+[GF-07] Genuine Job Description Language
+Description:
+Text reads professionally with realistic tone and context.
+Evidence:
+- Mentions specific tools or tech stack.
+- Balanced phrasing, no hyperbolic promotion.
+- Clean grammar and formatting.
+
+[GF-08] Employee-Centric Benefits
+Description:
+Standard benefits consistent with industry practices.
+Evidence:
+- Mentions healthcare, PTO, retirement plan, relocation.
+- Clearly written benefits section.
+- No unrealistic perks.
+
+[GF-09] Legal or Ethical Disclosure
+Description:
+Includes compliance or diversity statements.
+Evidence:
+- “We are an equal opportunity employer…” clause.
+- Mentions work authorization or legal requirements.
+
+[GF-10] Consistency Across Platforms
+Description:
+Job details align across verified listings.
+Evidence:
+- Same job title and salary on multiple sites.
+- Recruiter contact consistent everywhere.
+
+[GF-11] Employer Branding Elements
+Description:
+Company culture and branding visible.
+Evidence:
+- Logo or colors consistent with corporate identity.
+- Mentions mission, values, or diversity goals.
+
+[GF-12] Secure & Transparent Application Process
+Description:
+Applications use secure portals and disclose data handling.
+Evidence:
+- HTTPS form links with privacy statement.
+- No early personal data requests.
+
+Usage Notes:
+- Retrieve 3–5 green flags for Legit or Uncertain cases to justify verdict.
+- Combine with Red Flags: if red > green by 3+ points, output “Fake”.
+- Include GF codes and short evidence snippets in RAG output.

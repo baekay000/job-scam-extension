@@ -1,0 +1,61 @@
+This study targets automatic detection of fake job postings and finds that careful feature selection (Chi-square / PCA) and class-imbalance handling (SMOTE) are crucial to performance. Using TF-IDF features with selective feature reduction and SMOTE, a hard-voting ensemble (Logistic Regression + Random Forest + Extra Trees) reaches about 0.99 accuracy on the benchmark dataset. 
+
+
+
+Practical feature space you can use in a RAG or classifier (fields present in the dataset):
+
+String / text features: title, location, salary range, department, company profile (HTML fragment), description, requirements, benefits.
+
+Binary flags: company logo present, screening questions present, telecom position flag.
+
+Categorical features: required education (levels), required experience (levels), employment type (full/part/contract), function (e.g., consulting, engineering), industry.
+These fields are what prior work actually learned from to separate real vs fake. 
+
+
+
+Signals/heuristics embedded in those fields that tend to correlate with fraud (use as red flags and retrieval anchors):
+
+Company profile and logo: missing/empty profile and no logo are frequent in fraudulent ads; these binary/text features are explicitly present and commonly leveraged. 
+
+
+
+Benefits / salary: unrealistic, vague, or inconsistent salary ranges and benefit lists; these are modeled as structured text fields and help distinguish legitimate structure from free-form lure copy. 
+
+
+
+Requirements / description: overly generic descriptions, mismatched requirements vs title, minimal detail, or spammy phrasing often separate fake from real; prior studies rely on TF-IDF over these fields. 
+
+
+
+Screening questions flag: presence/absence can be informative—many scams do not include genuine screening flows. 
+
+
+
+
+Education/experience/type/function/industry: categorical combinations that are improbable (e.g., senior-level role with “entry level” experience) are useful signals once encoded. 
+
+
+Preprocessing & modeling patterns that matter (so your pipeline behaves like the strong baselines):
+
+Use TF-IDF to vectorize combined text fields; then apply Chi-square (e.g., top ~400 features) or PCA to reduce sparsity before classification. 
+
+
+
+ 
+
+
+
+Handle severe class imbalance (866 fake vs 17,014 real) with SMOTE (resampling before/after split is analyzed) to avoid models overfitting to “real.” 
+
+
+
+Ensembles (LR + RF + ETC, hard voting) beat single models; that combo + SMOTE + Chi-square produced the top results. 
+
+
+
+ 
+
+
+
+How to turn these into checklists for your RAG:
+When a new posting comes in, extract: title, company name/profile presence, logo presence, location, salary text, department/industry, employment type, description, requirements, benefits. Flag issues like: missing company details, no logo, vague or inflated salary, thin or generic description, mismatch between title and requirements, or odd category combos (e.g., “Intern” + “10 years experience”). These are the same levers the ML models use and are well-reflected in the dataset schema

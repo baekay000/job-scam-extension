@@ -1,0 +1,80 @@
+[RF-01] Company identity gaps
+- No company name, or a generic org (“Global Tech Ltd.”) with no footprint.
+- No website, or a site created recently, thin content, broken pages, stock-only images.
+- No verifiable address/LinkedIn/Glassdoor. Domain doesn’t match company (e.g., gmail/yahoo/proton).
+- “Recruiter” email on a free domain or mismatched to company domain.
+
+[RF-02] Vague or generic role content
+- Title/description is boilerplate (“hard-working self-starter…”) with minimal specifics.
+- Duties don’t match the title/seniority (e.g., “Senior Engineer” but tasks are data entry).
+- Requirements contradict themselves (entry-level + “10 years experience”).
+- Excessive buzzwords; little mention of team, tools, stakeholders, reporting lines.
+
+[RF-03] Compensation & benefits inconsistencies
+- Unrealistic pay ranges (“$90–$140/hr no experience required”).
+- Vague or absent benefits; “get rich fast” framing; commissions only but marketed as salaried.
+- Salary or benefits text copied verbatim across unrelated roles/companies.
+
+[RF-04] Process anomalies
+- Skips normal steps (no interview, “you’re hired today”).
+- Asks to move off-platform immediately (WhatsApp/Telegram) for “screening.”
+- Asks you to buy equipment, pay for training/certification, or front money for “onboarding.”
+- “Check deposit” or reimbursements before employment is finalized.
+
+[RF-05] Document & data requests
+- Requests SSN, banking details, passport/ID scans pre-offer or outside secure HR portals.
+- Demands remote desktop access, crypto wallets, or code-signing keys as part of “assessment.”
+
+[RF-06] Urgency & pressure tactics
+- “Act in the next 1 hour,” “limited slots,” “exclusive invite.”
+- Threatening tone about losing opportunity if you ask questions.
+
+[RF-07] Channel & domain signals
+- Email domain newly registered; domain age hidden; DMARC/SPF/DKIM fail (if checkable).
+- Misspellings in domain (typosquatting), e.g., microsofft-careers.com.
+- Contact name doesn’t match signature, LinkedIn profile stock-looking or very new.
+
+[RF-08] Logistics that don’t add up
+- Fully remote global role but insists on being “local only,” or vice versa.
+- Office address is a mailbox, coworking space with no suite; phone number is virtual-only.
+- Time zone, currency, or legal entity inconsistencies across the post.
+
+[RF-09] Odd attachments & links
+- Links to public drives or URL shorteners for “HR forms.”
+- PDFs/Docs asking for credentials or macro-enabled files.
+
+[RF-10] Social proof inconsistencies
+- Press claims that cannot be verified; awards with no sources.
+- Employee count / funding claims conflict across profiles.
+
+[RF-11] Posting metadata patterns
+- Newly created employer account posting many unrelated roles simultaneously.
+- Recycled descriptions across different companies; identical typos or formatting.
+
+[RF-12] Language & style markers
+- Over-capitalization, excessive emojis, or scammy phrasing (“guaranteed income,” “instant hire”).
+- Poor grammar from “Fortune 500” brand; copy-paste artifacts (“lorem ipsum,” wrong locale).
+
+GREEN FLAGS (help calibrate, not guarantees)
+- Corporate domain email matching website; recruiters appear on LinkedIn with history.
+- Clear hiring stages, realistic timeline, role-specific interviewers.
+- Specific tech stack/tools, team context, reporting line, success metrics.
+- Compensation aligned with market, benefits listed with standard specifics.
+- Company info consistent across website, LinkedIn, job boards, and press.
+
+QUICK SCORING RUBRIC (for rule-based baseline or RAG explanations)
+- Assign 1 point per red flag triggered; weight severe items (RF-04, RF-05) as +2.
+- 0–2 points → Likely Legit; 3–4 → Uncertain / Needs Verification; ≥5 or any +2 → Likely Fake.
+- Always cite which RFs triggered and quote the snippet that triggered them.
+
+RAG PROMPT HINT (use when generating an answer with local LLM)
+“Given the job posting text and this checklist, identify triggered RF codes (RF-xx), quote the exact lines that triggered them, and output: 
+- Verdict: Likely Fake / Possibly Real / Uncertain 
+- Evidence: bullet list of RF codes with snippets 
+- Next steps: 2–3 verification actions (domain check, LinkedIn cross-check, HR email)”
+
+SUGGESTED EXTRACTION FIELDS (map from posting → features)
+- title, company_name, company_profile_presence, company_domain, email_domain_type
+- location, employment_type, function/department, seniority, required_experience, required_education
+- description_text, requirements_text, benefits_text, salary_text, links, attachments
+- screening_questions_presence, logo_presence, contact_channel, interview_process_details

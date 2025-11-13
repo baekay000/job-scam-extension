@@ -1,0 +1,191 @@
+# Fake Job Posting Exemplars (based on typical patterns in the Kaggle 'Fake Job Posting' dataset schema)
+# Fields mirror common columns: title, location, salary_text, company_profile, description, requirements, benefits,
+# telecommuting, has_company_logo, has_questions, employment_type, required_experience, required_education, industry, function, fraudulent
+# Each exemplar also maps triggered Red Flags (RF-xx) with short evidence lines
+
+[FAKE-001]
+title: Remote Data Entry Clerk (No Experience) — $95–$140/hr
+location: US — Remote
+salary_text: $95–$140/hr
+company_profile: Global Tech Ltd. is expanding worldwide...
+description: Immediate hire. Move your onboarding to Telegram to start today. You'll copy PDFs into Excel...
+requirements: Must have smartphone. No experience needed. Training fee $50 reimbursed after first week.
+benefits: Weekly bonuses. Instant hire available.
+telecommuting: 1
+has_company_logo: 0
+has_questions: 0
+employment_type: Full-time
+required_experience: None
+required_education: Unspecified
+industry: Information Technology
+function: Administrative
+fraudulent: 1
+RF: RF-01 (generic org, thin footprint); RF-03 (unrealistic pay); RF-04 (off-platform + training fee); RF-09 (odd links)
+Evidence:
+- RF-01: Company name 'Global Tech Ltd.'; no website or LinkedIn presence
+- RF-03: $95–$140/hr for entry-level data entry
+- RF-04: "Move your onboarding to Telegram"; "Training fee $50"
+- RF-09: Links to public drive for 'HR forms'
+
+[FAKE-002]
+title: Junior Blockchain Analyst — Work From Home
+location: Canada — Remote
+salary_text: Commission Only (earn $5k–$8k/week)
+company_profile: A fast-growing investment group with global offices.
+description: Congratulations! You are shortlisted. Send your bank details to receive your signing bonus. No interview required.
+requirements: Crypto wallet address; remote desktop for "setup".
+benefits: Daily payouts.
+telecommuting: 1
+has_company_logo: 0
+has_questions: 0
+employment_type: Contract
+required_experience: 0–1 years
+required_education: High School
+industry: Financial Services
+function: Analyst
+fraudulent: 1
+RF: RF-04 (instant hire), RF-05 (bank/remote access), RF-03 (get rich quick), RF-06 (pressure)
+Evidence:
+- RF-04: "No interview required"
+- RF-05: "Send your bank details"; "remote desktop for setup"
+- RF-03: "$5k–$8k/week"
+- RF-06: "Congratulations! You are shortlisted" pre-interview
+
+[FAKE-003]
+title: Customer Support Associate — Immediate Start
+location: UK — London
+salary_text: £70–£100/hr
+company_profile: Leading European retailer since 2024.
+description: Fill out attached doc with your passport and SSN. You will receive a cashier's check for equipment.
+requirements: Must deposit check and buy gear from our vendor.
+benefits: Flexible hours.
+telecommuting: 1
+has_company_logo: 0
+has_questions: 0
+employment_type: Part-time
+required_experience: Entry level
+required_education: Unspecified
+industry: Retail
+function: Customer Service
+fraudulent: 1
+RF: RF-05 (sensitive docs), RF-04 (check deposit/equipment), RF-03 (unrealistic pay)
+Evidence:
+- RF-05: "Passport and SSN"
+- RF-04: "Cashier's check for equipment"
+- RF-03: £70–£100/hr for entry-level support
+
+[FAKE-004]
+title: Social Media Manager — Work from Anywhere
+location: Global — Remote
+salary_text: $4,000–$7,000/week
+company_profile: Award-winning media group (as seen on major news networks)
+description: We have limited slots. Act in the next 1 hour to secure your role. DM us on WhatsApp to complete screening.
+requirements: None. Training provided after joining.
+benefits: Exclusive bonuses to top performers.
+telecommuting: 1
+has_company_logo: 0
+has_questions: 0
+employment_type: Full-time
+required_experience: Unspecified
+required_education: Unspecified
+industry: Marketing
+function: Marketing
+fraudulent: 1
+RF: RF-06 (urgency), RF-04 (move off-platform), RF-10 (unverifiable awards), RF-02 (vague duties)
+Evidence:
+- RF-06: "Act in the next 1 hour"
+- RF-04: "DM us on WhatsApp"
+- RF-10: "As seen on major news networks" with no links
+- RF-02: No concrete responsibilities or tools
+
+[FAKE-005]
+title: Senior Software Engineer — Remote (Python)
+location: US — Remote
+salary_text: $180k–$220k base
+company_profile: Microsofft Careers
+description: Build next-gen AI. Apply via our portal: https://microsofft-careers.com/apply
+requirements: Pay $199 for mandatory training course; reimbursed after 90 days.
+benefits: Annual bonus.
+telecommuting: 1
+has_company_logo: 1
+has_questions: 0
+employment_type: Full-time
+required_experience: 5–7 years
+required_education: Bachelor’s
+industry: Computer Software
+function: Engineering
+fraudulent: 1
+RF: RF-07 (typosquatting), RF-04 (upfront fee), RF-01 (brand spoof)
+Evidence:
+- RF-07: Domain 'microsofft-careers.com'
+- RF-04: "Pay $199 for mandatory training"
+- RF-01: Company identity spoofing 'Microsoft'
+
+[FAKE-006]
+title: Healthcare Data Analyst — Remote
+location: US — Remote
+salary_text: $85,000–$95,000
+company_profile: United Health Associates LLC
+description: Start immediately—your interview is waived due to high demand. Complete onboarding through a Google Doc form.
+requirements: Provide bank account for payroll setup before offer.
+benefits: Health insurance (details after onboarding)
+telecommuting: 1
+has_company_logo: 0
+has_questions: 0
+employment_type: Full-time
+required_experience: 1 year
+required_education: Bachelor’s
+industry: Healthcare
+function: Analyst
+fraudulent: 1
+RF: RF-04 (skips interview), RF-09 (public forms), RF-05 (bank details)
+Evidence:
+- RF-04: "Interview is waived"
+- RF-09: "Google Doc form" for onboarding
+- RF-05: "Provide bank account before offer"
+
+[FAKE-007]
+title: Office Assistant — Local Only (Global Remote OK)
+location: Germany — Berlin
+salary_text: €60–€80/hr
+company_profile: Europa Services GmbH
+description: Local applicants only. Role is fully remote across any location.
+requirements: Join our Telegram to finish the application.
+benefits: Weekly pay in crypto.
+telecommuting: 1
+has_company_logo: 0
+has_questions: 0
+employment_type: Contract
+required_experience: 0–1 years
+required_education: Unspecified
+industry: Administrative
+function: Administrative
+fraudulent: 1
+RF: RF-08 (logistics conflict), RF-04 (off-platform), RF-03 (unrealistic pay)
+Evidence:
+- RF-08: "Local only" vs "fully remote across any location"
+- RF-04: Telegram for application
+- RF-03: €60–€80/hr for entry-level office work
+
+[FAKE-008]
+title: QA Tester — Entry Level
+location: India — Remote
+salary_text: ₹5,00,000–₹9,00,000 + equipment stipend
+company_profile: Apex Labs Pvt Ltd (founded 2024)
+description: Please download attached .docm file and enable macros to continue your assessment.
+requirements: Windows laptop with admin rights.
+benefits: Equipment stipend after you pass.
+telecommuting: 1
+has_company_logo: 0
+has_questions: 0
+employment_type: Internship
+required_experience: 0 years
+required_education: Unspecified
+industry: Information Technology
+function: Quality Assurance
+fraudulent: 1
+RF: RF-09 (macro-enabled doc), RF-05 (security risk), RF-01 (thin company footprint)
+Evidence:
+- RF-09: ".docm file" with macros
+- RF-05: Requests enabling macros for 'assessment'
+- RF-01: Newly formed company, minimal presence

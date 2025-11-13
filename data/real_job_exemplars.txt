@@ -1,0 +1,181 @@
+# Real Job Posting Exemplars (based on typical legitimate patterns in the Kaggle dataset schema)
+# Fields mirror common columns; includes mapped Green Flags (GF-xx) with evidence
+
+[REAL-001]
+title: Software Engineer I (Backend) — Python/Go
+location: USA — Boston, MA (Hybrid, 2–3 days onsite)
+salary_text: $95,000–$120,000 base + bonus
+company_profile: Publicly traded SaaS company building developer tools for CI/CD.
+description: Design, implement, and maintain backend services in Python and Go. Collaborate with SRE to improve reliability and CI. Participate in code reviews and on-call rotation.
+requirements: 1–3 years experience; Python or Go; REST/gRPC; Postgres or similar; exposure to Docker/Kubernetes.
+benefits: Medical, dental, vision; 401(k) match; 15 PTO days; learning stipend.
+telecommuting: 0
+has_company_logo: 1
+has_questions: 1
+employment_type: Full-time
+required_experience: Entry level
+required_education: Bachelor’s in CS or related
+industry: Computer Software
+function: Engineering
+fraudulent: 0
+GF: GF-01 (verified identity), GF-02 (structured details), GF-03 (realistic comp), GF-04 (ATS), GF-06 (timeline), GF-07 (genuine language)
+Evidence:
+- GF-01: Company careers page + LinkedIn match
+- GF-02: Clear sections for responsibilities/requirements
+- GF-03: Market-aligned range for Boston junior roles
+- GF-04: Application via Greenhouse
+- GF-06: Multi-stage interview described
+- GF-07: Specific tech stack and team context
+
+[REAL-002]
+title: Data Analyst — Health Analytics
+location: USA — Nashville, TN (Onsite)
+salary_text: $70,000–$85,000
+company_profile: Regional healthcare system with 5 hospitals and 60+ clinics.
+description: Create dashboards (Power BI/Tableau); build SQL queries for clinical KPIs; support monthly reporting cycle.
+requirements: 2–4 years analytics; SQL; Power BI/Tableau; healthcare data familiarity.
+benefits: Medical/dental/vision; tuition reimbursement; 403(b).
+telecommuting: 0
+has_company_logo: 1
+has_questions: 1
+employment_type: Full-time
+required_experience: Mid-Senior level
+required_education: Bachelor’s
+industry: Healthcare
+function: Analyst
+fraudulent: 0
+GF: GF-05 (traceable presence), GF-02 (structured), GF-03 (realistic comp), GF-09 (EEO), GF-10 (consistency)
+Evidence:
+- GF-05: Hospital system website + press releases
+- GF-09: EEO statement included
+- GF-10: Same posting on LinkedIn and career site
+
+[REAL-003]
+title: Research Assistant — Computer Vision Lab
+location: UK — Cambridge (Onsite)
+salary_text: £32,000–£38,000
+company_profile: University research group focusing on medical imaging and ML.
+description: Implement baselines in Python; run experiments; write and maintain documentation; assist with publications.
+requirements: BSc/MSc; Python; PyTorch; Linux; strong writing.
+benefits: University pension; 30 days holiday; training budget.
+telecommuting: 0
+has_company_logo: 1
+has_questions: 1
+employment_type: Fixed-term
+required_experience: Entry level
+required_education: Bachelor’s/Master’s
+industry: Education
+function: Research
+fraudulent: 0
+GF: GF-01 (verified identity), GF-02 (structure), GF-06 (timeline), GF-11 (branding)
+Evidence:
+- GF-01: University domain email and portal
+- GF-06: Application deadline + interview dates listed
+- GF-11: University branding and style guide
+
+[REAL-004]
+title: Product Manager — Mobile
+location: Germany — Berlin (Hybrid)
+salary_text: €70,000–€95,000
+company_profile: Series B startup with consumer productivity app (20M MAU).
+description: Define roadmap; collaborate with Design/Eng; analyze metrics; run experiments to drive activation.
+requirements: 3–5 years PM; shipping mobile apps; SQL basics; experimentation tools.
+benefits: Stock options; L&D; 30 vacation days; commuter benefit.
+telecommuting: 0
+has_company_logo: 1
+has_questions: 1
+employment_type: Full-time
+required_experience: Mid-level
+required_education: Bachelor’s
+industry: Internet
+function: Product Management
+fraudulent: 0
+GF: GF-03 (realistic comp), GF-02 (structure), GF-10 (consistency), GF-07 (genuine language)
+Evidence:
+- GF-10: Matched LinkedIn/company site details
+- GF-07: Clear metrics and responsibilities
+
+[REAL-005]
+title: QA Engineer — Embedded Systems
+location: India — Bengaluru (Hybrid)
+salary_text: ₹9–14 LPA
+company_profile: Automotive Tier-1 supplier; 25+ years; ISO-certified.
+description: Author test plans; automate HIL tests; collaborate with firmware team; triage bugs.
+requirements: 2–4 years QA; Python/Robot Framework; CAN, UART; HIL benches.
+benefits: Health insurance; gratuity; transport.
+telecommuting: 0
+has_company_logo: 1
+has_questions: 1
+employment_type: Full-time
+required_experience: Mid-level
+required_education: Bachelor’s in ECE/CS
+industry: Automotive
+function: Quality Assurance
+fraudulent: 0
+GF: GF-01, GF-02, GF-03, GF-07, GF-08
+Evidence:
+- GF-03: Market-aligned Indian LPA range
+- GF-07: Hardware protocols/tools listed
+
+[REAL-006]
+title: Business Operations Associate
+location: Canada — Toronto (Hybrid)
+salary_text: CAD 60,000–75,000 + benefits
+company_profile: National non-profit supporting youth programs.
+description: Manage vendor onboarding; process invoices; reconcile monthly budgets; coordinate cross-team ops.
+requirements: 1–3 years ops/finance; Excel; basic SQL; stakeholder comms.
+benefits: Extended health; RRSP match; paid volunteer days.
+telecommuting: 0
+has_company_logo: 1
+has_questions: 1
+employment_type: Full-time
+required_experience: Entry to Mid
+required_education: Bachelor’s
+industry: Non-profit
+function: Operations
+fraudulent: 0
+GF: GF-05 (traceable presence), GF-02 (structure), GF-08 (benefits)
+Evidence:
+- GF-05: Registered charity profile + annual report
+
+[REAL-007]
+title: IT Support Specialist
+location: Australia — Sydney (Onsite)
+salary_text: AUD 70,000–80,000
+company_profile: Regional logistics company with 1,200 employees.
+description: Resolve tickets (L1/L2); support Windows/Mac; manage AD; rotate on-call.
+requirements: 2+ years helpdesk; Office 365; AD; ticketing systems.
+benefits: Health cover; shift loading; training.
+telecommuting: 0
+has_company_logo: 1
+has_questions: 1
+employment_type: Full-time
+required_experience: Mid-level
+required_education: Certificate/Diploma
+industry: Logistics
+function: IT Support
+fraudulent: 0
+GF: GF-02, GF-03, GF-10
+Evidence:
+- GF-10: Consistent info across Seek/company site
+
+[REAL-008]
+title: Marketing Coordinator
+location: USA — Austin, TX (Hybrid)
+salary_text: $55,000–$68,000
+company_profile: Consumer packaged goods brand with national retail presence.
+description: Plan campaigns; manage social calendar; coordinate photoshoots; report on KPIs.
+requirements: 1–3 years marketing; Adobe CC; GA4 basics; copywriting.
+benefits: Medical, dental, vision; 401(k); product stipend.
+telecommuting: 0
+has_company_logo: 1
+has_questions: 1
+employment_type: Full-time
+required_experience: Entry level
+required_education: Bachelor’s
+industry: Consumer Goods
+function: Marketing
+fraudulent: 0
+GF: GF-03, GF-02, GF-11
+Evidence:
+- GF-11: Branding and tone match corporate site

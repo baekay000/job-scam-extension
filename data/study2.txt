@@ -1,0 +1,47 @@
+This study also uses the Kaggle Fake Job Postings dataset and focuses on text-based features with strong emphasis on preprocessing and class imbalance. It merges core textual columns (e.g., job title, location, description, company profile, department, benefits, requirements, type, qualification, function) into a single “text” field, performs standard cleaning (stop-words, punctuation, numbers removal, stemming), and then learns with TF-IDF or BoW features. Because the data are highly imbalanced (≈17k real vs ≈866 fake), the study uses ADASYN oversampling; with TF-IDF + ADASYN, Extra Trees achieves ~99.9% accuracy. 
+
+
+
+ 
+
+
+
+Relevant features/fields you should retain for judgment (and retrieval prompts):
+
+Core text variables: company profile, location, job description, title, department, benefits, requirements, employment type, qualification, function → merged to a single text for modeling (you can also keep them separate to inspect specific red flags). 
+
+
+Dependent target: “fraudulent” label; the extreme skew motivates oversampling methods like ADASYN. 
+
+
+
+Preprocessing that improved signal (mirror these steps offline):
+
+Stop-word removal to reduce noise.
+
+Punctuation removal via regex.
+
+Numeric removal (numbers weren’t strong features).
+
+Stemming to normalize variants.
+These steps simplified the learning task and improved downstream accuracy. 
+
+
+
+Red-flag patterns to surface in your RAG from those fields:
+
+Sparse or boilerplate company profile (and no verifiable details).
+
+Job title / department that doesn’t align with the requirements.
+
+Benefits or salary phrased vaguely or unrealistically.
+
+Employment type or function inconsistent with the seniority/qualification demanded.
+These are the same regions of text the study merges and vectorizes for classification; your RAG can cite chunks from those fields when explaining a “Likely Fake” judgment. 
+
+
+
+Modeling takeaway you can keep in mind while testing locally:
+
+For traditional ML, TF-IDF + ADASYN + Extra Trees was strongest in this paper. For your offline RAG with Ollama, keep the feature emphasis (the fields above) and the imbalance awareness in your prompts so the generator explains decisions with those concrete factors. 
+
