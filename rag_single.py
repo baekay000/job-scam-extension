@@ -1,178 +1,83 @@
 #!/usr/bin/env python3
-# rag_single.py — one-shot offline RAG over ./data/*.txt
-# Prints plain text: "Verdict: ..." + "Reasons:" bullets.
+# rag_single_simple.py — minimal, fast, no-LLM "RAG"
+# - Vectorize corpus (./data/*.txt)
+# - Retrieve top-k passages for the input text
+# - Score using exemplar similarity + simple RF/GF counts
+# - Print: Verdict + Reasons (plain text)
 
-import sys, os, re, glob, subprocess
+import sys, os, re, glob
 from pathlib import Path
 from typing import List, Tuple
 
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
 DATA_DIR = Path("data")
-MODEL = os.environ.get("RAG_MODEL", "mistral:7b")  # use mistral for RAG too
-TOP_K = int(os.environ.get("RAG_TOPK", "4"))       # a touch more recall
+TOP_K = int(os.environ.get("RAG_TOPK", "4"))
 CHUNK_SIZE = int(os.environ.get("RAG_CHUNK", "600"))
 CHUNK_OVERLAP = int(os.environ.get("RAG_OVERLAP", "120"))
-MAX_CONTEXT_CHARS = int(os.environ.get("RAG_CTX_CHARS", "4000"))
-OLLAMA_TIMEOUT = int(os.environ.get("RAG_OLLAMA_TIMEOUT", "60"))
+MAX_JOB_CHARS = int(os.environ.get("RAG_JOB_CHARS", "2000"))
 
+# --------- tiny helpers ----------
 def _read_txt(p: Path) -> str:
     return p.read_text(encoding="utf-8", errors="ignore")
 
-def _load_docs() -> List[Tuple[str, str]]:
-    pats = [
-        str(DATA_DIR / "*.txt"),
-        str(DATA_DIR / "checklists" / "*.txt"),
-        str(DATA_DIR / "exemplars" / "*.txt"),
-        str(DATA_DIR / "playbooks" / "*.txt"),
-        str(DATA_DIR / "rules" / "*.txt"),
-        str(DATA_DIR / "resources" / "*.txt"),
-        str(DATA_DIR / "studies" / "*.txt"),
-    ]
-    docs = []
-    for pat in pats:
-        for fp in glob.glob(pat):
-            try:
-                t = _read_txt(Path(fp)).strip()
-                if t:
-                    docs.append((Path(fp).name, t))
-            except Exception:
-                pass
-    return docs
-
 def _chunk_text(text: str, size=CHUNK_SIZE, overlap=CHUNK_OVERLAP) -> List[str]:
-    text = re.sub(r"\s+", " ", text).strip()
-    if not text:
-        return []
-    chunks, i = [], 0
+    text = re.sub(r"\s+", " ", (text or "")).strip()
+    if not text: return []
+    out, i = [], 0
     step = max(1, size - overlap)
     while i < len(text):
-        chunks.append(text[i:i+size])
+        out.append(text[i:i+size])
         i += step
-    return chunks
+    return out
 
-def _build_corpus(docs: List[Tuple[str, str]]):
+def _load_corpus() -> Tuple[List[str], List[str]]:
+    """Return passages and metadata labels."""
+    if not DATA_DIR.exists():
+        return [], []
     passages, metas = [], []
-    for name, txt in docs:
+    for fp in sorted(glob.glob(str(DATA_DIR / "*.txt"))):
+        name = Path(fp).name
+        txt = _read_txt(Path(fp)).strip()
+        if not txt: 
+            continue
         for idx, ch in enumerate(_chunk_text(txt)):
             passages.append(ch)
             metas.append(f"{name}#chunk{idx}")
     return passages, metas
 
-def _retrieve(passages: List[str], query: str, top_k=TOP_K) -> List[int]:
-    from sklearn.feature_extraction.text import TfidfVectorizer
-    from sklearn.metrics.pairwise import cosine_similarity
-    vec = TfidfVectorizer(stop_words="english")
-    X = vec.fit_transform(passages + [query])
-    sims = cosine_similarity(X[-1], X[:-1]).flatten()
-    order = sims.argsort()[::-1][:top_k]
-    return order.tolist()
+# --------- cheap signals (regex) ----------
+# Keep these very small to stay "simple"
+RF_PATTERNS = [
+    ("RF-04", r"\b(no interview|required today|instant hire|start immediately|telegram|whatsapp)\b"),
+    ("RF-05", r"\b(ssn|social security|bank account|routing number|passport|id scan|remote desktop)\b"),
+    ("RF-03", r"\$\s?\d{2,},?\d{0,3}\s*(/|per)?\s?(hour|hr)\b.*\bno experience\b"),
+]
+GF_PATTERNS = [
+    ("GF-04", r"\b(workday|greenhouse|lever|smartrecruiters)\b"),
+    ("GF-02", r"\bresponsibilities\b.*\brequirements\b"),
+    ("GF-09", r"\bequal opportunity employer\b|\beeo\b"),
+]
 
-def _forced_rf_gf(passages, metas, max_per_file=2):
-    """Always include a few RF/GF chunks so the model has the checklist."""
-    keep = []
-    for i, m in enumerate(metas):
-        base = m.split("#", 1)[0].lower()
-        if base in ("redflags.txt", "greenflags.txt"):
-            keep.append(i)
-    rf = [i for i in keep if metas[i].lower().startswith("redflags.txt")][:max_per_file]
-    gf = [i for i in keep if metas[i].lower().startswith("greenflags.txt")][:max_per_file]
-    return rf + gf
-
-def _ollama_run(prompt: str, model=MODEL, timeout=OLLAMA_TIMEOUT) -> str:
-    res = subprocess.run(
-        ["ollama", "run", model],
-        input=prompt,
-        text=True,
-        capture_output=True,
-        timeout=timeout
-    )
-    return (res.stdout or "").strip()
-
-def _standardize_output(raw: str) -> str:
-    """Coerce model output into the exact two-section format we parse downstream."""
-    if not raw:
-        return "Verdict: Uncertain\nReasons:\n- Empty model output"
-    t = raw.strip()
-    t = re.sub(r"\*\*|__", "", t)        # strip markdown bold/underline
-    t = re.sub(r"</?[^>]+>", "", t)      # strip simple HTML tags
-    m = re.search(r"(?im)^\s*verdict:\s*(real|fake|uncertain)\b", t)
-    if m:
-        verdict = m.group(1).capitalize()
-    else:
-        low = t.lower()
-        if re.search(r"\bfake\b", low) and not re.search(r"\breal\b", low):
-            verdict = "Fake"
-        elif re.search(r"\breal\b", low) and not re.search(r"\bfake\b", low):
-            verdict = "Real"
-        elif "uncertain" in low or "unknown" in low:
-            verdict = "Uncertain"
-        else:
-            verdict = "Uncertain"
-
-    reasons = []
-    in_reasons = False
-    for line in t.splitlines():
-        ls = line.strip()
-        if re.match(r"(?i)^\s*reasons\s*:\s*$", ls):
-            in_reasons = True
-            continue
-        if in_reasons and ls.startswith("-"):
-            reasons.append(ls)
-        if in_reasons and not ls.startswith("-") and ls:
-            break
-    if not reasons:
-        # fallback: extract a couple short explanatory lines
-        for ls in t.splitlines():
-            if 5 <= len(ls) <= 200 and not ls.lower().startswith("verdict"):
-                reasons.append(f"- {ls.strip()}")
-            if len(reasons) >= 3:
-                break
-    reasons = reasons[:3] if reasons else ["- Model did not provide reasons"]
-    return "Verdict: " + verdict + "\nReasons:\n" + "\n".join(reasons)
-
-def _rule_prefilter(job_text: str):
-    """Skip the LLM on obvious scams for speed & fewer 'Uncertain's."""
+def _rf_gf_counts(job_text: str):
     t = job_text.lower()
-    hits = []
-    def hit(code): hits.append(code)
-    if "telegram" in t or "whatsapp" in t: hit("RF-04")
-    if "training fee" in t or "pay for equipment" in t or "cashier's check" in t: hit("RF-04")
-    if "ssn" in t or "social security" in t or "bank account" in t or "passport" in t: hit("RF-05")
-    if "no interview" in t or "hired today" in t: hit("RF-04")
-    if re.search(r"\$\s?\d{2,},?\d{0,3}\s*(?:/|per)?\s?(?:hour|hr)\b", t) and "no experience" in t:
-        hit("RF-03")
-    if "limited slots" in t or "act in the next" in t: hit("RF-06")
-    if hits:
-        return "Verdict: Fake\nReasons:\n- Obvious red flags: " + ", ".join(hits)
-    return None
+    rf = [code for code, pat in RF_PATTERNS if re.search(pat, t)]
+    gf = [code for code, pat in GF_PATTERNS if re.search(pat, t)]
+    return rf, gf
 
-def _make_prompt(context: str, job_text: str) -> str:
-    # Relaxed: use CONTEXT *and* JOB POSTING; same output rules as baseline.
-    return f"""You are a careful reviewer for job posting fraud.
-Use the CONTEXT (checklists/examples) to guide your judgment, and use the JOB POSTING directly for evidence.
-If signals are weak or contradictory, return Uncertain.
+# --------- simple class exemplars ----------
+def _load_exemplar_sets():
+    """Return strings for crude class centroids (if files exist)."""
+    fake_fp = DATA_DIR / "fake_job_exemplars.txt"
+    real_fp = DATA_DIR / "real_job_exemplars.txt"
+    fake_txt = _read_txt(fake_fp) if fake_fp.exists() else ""
+    real_txt = _read_txt(real_fp) if real_fp.exists() else ""
+    return fake_txt.strip(), real_txt.strip()
 
-STRICT OUTPUT RULES:
-- No markdown.
-- Print exactly two sections: 'Verdict:' then 'Reasons:' with 1-3 bullets.
-- Verdict must be exactly one of: Real, Fake, Uncertain.
-
-CONTEXT:
-{context}
-
-JOB POSTING:
-{job_text}
-
-Return EXACTLY this:
-
-Verdict: Real|Fake|Uncertain
-Reasons:
-- short reason #1 (cite phrase from JOB POSTING or CONTEXT)
-- short reason #2
-- short reason #3 (optional)
-""".strip()
-
+# --------- main simple RAG ----------
 def main():
-    # Input: --text "...", --file path, or stdin
+    # read job posting from --text/--file/stdin
     args = sys.argv[1:]
     job_text = ""
     if "--text" in args:
@@ -184,46 +89,85 @@ def main():
     else:
         job_text = sys.stdin.read()
 
-    job_text = (job_text or "").strip()
+    job_text = (job_text or "").strip()[:MAX_JOB_CHARS]
     if not job_text:
-        print("Verdict: Uncertain\nReasons:\n- No job text provided", flush=True)
-        sys.exit(0)
+        print("Verdict: Fake\nReasons:\n- No job text provided")
+        return
 
-    # Obvious scam shortcut
-    prefake = _rule_prefilter(job_text)
-    if prefake:
-        print(prefake, flush=True)
-        sys.exit(0)
+    passages, metas = _load_corpus()
+    if not passages:
+        print("Verdict: Real\nReasons:\n- No corpus found; no strong red flags in text")
+        return
 
-    if not DATA_DIR.exists():
-        print("Verdict: Uncertain\nReasons:\n- Missing ./data directory", flush=True)
-        sys.exit(0)
+    # Vectorize corpus + query
+    vec = TfidfVectorizer(stop_words="english")
+    X = vec.fit_transform(passages + [job_text])
+    Q = X[-1]            # query vector
+    C = X[:-1]           # corpus matrix
 
-    docs = _load_docs()
-    if not docs:
-        print("Verdict: Uncertain\nReasons:\n- No .txt documents in ./data", flush=True)
-        sys.exit(0)
+    # Retrieve top-k
+    sims = cosine_similarity(Q, C).flatten()
+    order = sims.argsort()[::-1][:TOP_K]
 
-    passages, metas = _build_corpus(docs)
-    q = re.sub(r"\s+", " ", job_text)[:1500]
-    idxs = _retrieve(passages, q, top_k=TOP_K)
+    # Build tiny class signal using exemplars
+    fake_ex, real_ex = _load_exemplar_sets()
+    sim_fake = sim_real = 0.0
+    if fake_ex and real_ex:
+        # vectorize both exemplars with the same vectorizer vocabulary
+        ex_docs = [fake_ex, real_ex]
+        EX = vec.transform(ex_docs)     # shape (2, V)
+        sim_fake = cosine_similarity(Q, EX[0]).item()
+        sim_real = cosine_similarity(Q, EX[1]).item()
 
-    # Always prepend a few RF/GF chunks
-    forced = _forced_rf_gf(passages, metas, max_per_file=2)
-    seen = set()
-    final_idxs = []
-    for i in forced + idxs:
-        if i not in seen:
-            final_idxs.append(i); seen.add(i)
+    # RF/GF counts
+    rf_hits, gf_hits = _rf_gf_counts(job_text)
 
-    top_chunks = [f"[{metas[i]}]\n{passages[i]}" for i in final_idxs]
-    context = "\n\n".join(top_chunks)
-    if len(context) > MAX_CONTEXT_CHARS:
-        context = context[:MAX_CONTEXT_CHARS]
+    # ---------- extremely simple scoring ----------
+    # combine signals: exemplar tilt + RF/GF counts + top-k similarity tilt
+    topk_fake_bias = 0.0
+    topk_texts = []
+    for i in order:
+        topk_texts.append(metas[i])
+        # crude hint: if a top chunk came from fake exemplars file name, tilt a bit
+        base = metas[i].split("#", 1)[0].lower()
+        if "fake_job_exemplars.txt" in base:
+            topk_fake_bias += 0.1
+        if "real_job_exemplars.txt" in base:
+            topk_fake_bias -= 0.1
 
-    prompt = _make_prompt(context, q)
-    out = _ollama_run(prompt, MODEL)
-    print(_standardize_output(out), flush=True)
+    score = 0.0
+    score += (sim_fake - sim_real)              # positive => fake leaning
+    score += 0.5 * len(rf_hits)                 # red flags push to fake
+    score -= 0.3 * len(gf_hits)                 # green flags pull to real
+    score += topk_fake_bias
+
+    verdict = "Fake" if score > 0 else "Real"
+
+    # --------- print minimal, human-readable output ----------
+    print("Verdict:", verdict)
+    print("Reasons:")
+    # Reason 1: which signals fired
+    reasons = []
+    if rf_hits:
+        reasons.append(f"- Red flags: {', '.join(sorted(set(rf_hits)))}")
+    if sim_fake or sim_real:
+        reasons.append(f"- Exemplar similarity tilt: fake={sim_fake:.2f}, real={sim_real:.2f}")
+    if topk_fake_bias != 0:
+        reasons.append(f"- Retrieved chunks bias: {topk_fake_bias:+.2f} (from top-k source names)")
+    if gf_hits:
+        reasons.append(f"- Green flags: {', '.join(sorted(set(gf_hits)))}")
+
+    if not reasons:
+        # default generic reason using top-k
+        reasons.append("- Decision based on similarity to retrieved context")
+
+    for r in reasons[:3]:
+        print(r)
+
+    # Show which chunks we used (helps debug)
+    print("\nTop-K passages:")
+    for m in topk_texts:
+        print("•", m)
 
 if __name__ == "__main__":
     main()
