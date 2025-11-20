@@ -1,128 +1,190 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
     <style>
-        body {
-            width: 350px;
-            padding: 16px;
-            font-family: 'Segoe UI', system-ui, sans-serif;
+        body { 
+            width: 450px; 
+            padding: 16px; 
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
+            background: #f8fafc;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
         .header {
             text-align: center;
-            margin-bottom: 16px;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e5e7eb;
         }
-        .header h1 {
-            font-size: 18px;
+        .header h2 {
             margin: 0;
             color: #2563eb;
+            font-size: 20px;
         }
-        .analyze-btn {
+        .header p {
+            margin: 4px 0 0 0;
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .tab-buttons {
+            display: flex;
+            margin-bottom: 16px;
+            background: #f3f4f6;
+            border-radius: 8px;
+            padding: 4px;
+        }
+        .tab-button {
+            flex: 1;
+            padding: 8px 12px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .tab-button.active {
+            background: white;
+            color: #2563eb;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+            margin-bottom: 16px;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+        button {
             width: 100%;
             padding: 12px;
             background: #2563eb;
             color: white;
             border: none;
             border-radius: 8px;
-            font-weight: 600;
             cursor: pointer;
-            margin-bottom: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: background 0.2s;
         }
-        .analyze-btn:hover {
+        button:hover {
             background: #1d4ed8;
         }
-        .analyze-btn:disabled {
+        button:disabled {
             background: #9ca3af;
             cursor: not-allowed;
         }
-        .result {
-            padding: 12px;
-            border-radius: 8px;
-            margin-top: 12px;
-            display: none;
-        }
-        .result.safe {
-            background: #d1fae5;
-            border: 1px solid #10b981;
-        }
-        .result.warning {
-            background: #fef3c7;
-            border: 1px solid #f59e0b;
-        }
-        .result.danger {
-            background: #fee2e2;
-            border: 1px solid #ef4444;
-        }
-        .loading {
+        .status {
+            font-size: 12px;
+            color: #6b7280;
             text-align: center;
-            padding: 8px;
-            display: none;
+            margin-top: 8px;
+            min-height: 16px;
+        }
+        #loading {
+            text-align: center;
+            padding: 30px 20px;
+        }
+        #result {
+            margin-top: 16px;
         }
         .spinner {
-            border: 2px solid #f3f4f6;
-            border-top: 2px solid #2563eb;
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #2563eb;
             border-radius: 50%;
-            width: 20px;
-            height: 20px;
+            width: 32px;
+            height: 32px;
             animation: spin 1s linear infinite;
-            margin: 0 auto;
+            margin: 0 auto 16px auto;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        .red-flag {
-            background: white;
-            padding: 4px 8px;
-            margin: 4px 0;
-            border-radius: 4px;
+        .auto-info {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+        .auto-info h3 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #0369a1;
+        }
+        .auto-info p {
+            margin: 0;
             font-size: 12px;
-            border-left: 3px solid #ef4444;
-        }
-        .confidence-bar {
-            height: 6px;
-            background: #e5e7eb;
-            border-radius: 3px;
-            margin: 8px 0;
-            overflow: hidden;
-        }
-        .confidence-fill {
-            height: 100%;
-            border-radius: 3px;
-            transition: width 0.3s ease;
-        }
-        .stats {
-            font-size: 12px;
-            color: #6b7280;
-            margin-top: 8px;
+            color: #0c4a6e;
+            line-height: 1.4;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1> JobTrust AI</h1>
-        <p>Real-time Job Scam Detection</p>
-    </div>
-
-    <button class="analyze-btn" id="analyzeBtn">
-         Analyze Current Job
-    </button>
-
-    <div class="loading" id="loading">
-        <div class="spinner"></div>
-        <p>Analyzing job posting...</p>
-    </div>
-
-    <div class="result" id="result">
-        <h3 id="resultTitle">Analysis Result</h3>
-        <div class="confidence-bar">
-            <div class="confidence-fill" id="confidenceBar"></div>
+    <div class="container">
+        <div class="header">
+            <h2>🛡️ JobTrust AI</h2>
+            <p>Job Scam Detection</p>
         </div>
-        <p id="resultText">Analysis will appear here</p>
-        <div id="redFlags"></div>
-        <div class="stats">
-            <span id="confidenceText">Confidence: 0%</span> • 
-            <span id="analysisTime">Time: 0s</span>
+
+        <div class="tab-buttons">
+            <button class="tab-button active" data-tab="auto">Auto Analyze</button>
+            <button class="tab-button" data-tab="manual">Manual Input</button>
         </div>
+
+        <div id="auto-tab" class="tab-content active">
+            <div class="auto-info">
+                <h3>📄 Current Page Analysis</h3>
+                <p>Automatically analyze the job posting on the current page. Works on Indeed, LinkedIn, and other job sites.</p>
+            </div>
+            <button id="analyzeCurrentPage">Analyze Current Page</button>
+            <div id="autoStatus" class="status"></div>
+        </div>
+
+        <div id="manual-tab" class="tab-content">
+            <div style="margin-bottom: 12px;">
+                <label style="font-weight: 600; font-size: 14px; color: #374151; margin-bottom: 8px; display: block;">
+                    Paste Job Description:
+                </label>
+                <textarea 
+                    id="jobTextInput" 
+                    placeholder="Paste the full job description, email, or any job-related text here...&#10;&#10;Example:&#10;'We are hiring a Remote Data Entry Clerk. Pay: $35/hour. No experience required. Immediate start. Send your resume to...'"
+                ></textarea>
+            </div>
+            <button id="analyzeTextBtn">Analyze Job Text</button>
+            <div id="manualStatus" class="status"></div>
+        </div>
+
+        <div id="loading" style="display: none;">
+            <div class="spinner"></div>
+            <div style="font-weight: 600; margin-bottom: 4px;">Analyzing job posting...</div>
+            <div style="font-size: 12px; color: #6b7280;">This may take 1-2 minutes</div>
+        </div>
+
+        <div id="result" style="display: none;"></div>
     </div>
 
     <script src="popup.js"></script>
