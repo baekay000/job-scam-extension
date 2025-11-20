@@ -7,6 +7,7 @@ from datetime import datetime
 import os
 import time
 import subprocess
+import re
 
 app = Flask(__name__)
 # Enable CORS for all routes - this fixes the browser extension issue
@@ -412,14 +413,14 @@ PROFESSIONAL_HTML = '''
                 
                 <div class="form-group">
                     <label>API Endpoint:</label>
-                    <input type="text" value="http://localhost:5001/api/analyze" readonly 
+                    <input type="text" value="http://localhost:5001/analyze" readonly 
                            style="background: var(--gray-100);">
                 </div>
                 
                 <div class="form-group">
                     <label>Example Request (cURL):</label>
                     <textarea readonly style="height: 120px; font-family: monospace; background: var(--gray-100);">
-curl -X POST http://localhost:5001/api/analyze \\
+curl -X POST http://localhost:5001/analyze \\
   -H "Content-Type: application/json" \\
   -d '{
     "job_text": "Your job description here...",
@@ -734,9 +735,175 @@ curl -X POST http://localhost:5001/api/analyze \\
 </html>
 '''
 
+
+def simple_analysis(job_text):
+    """Simple pattern matching as fallback"""
+    text = job_text.lower()
+    scam_score = 0
+    red_flags = []
+    
+    scam_patterns = {
+        'sensitive_info_request': ['ssn', 'social security', 'bank details', 'bank account', 'routing number'],
+        'unrealistic_salary': ['$8000', '$10000', '$5000 monthly', '$10000 monthly'],
+        'personal_contact': ['@gmail.com', '@yahoo.com', '@hotmail.com'],
+        'urgency_tactics': ['immediately', 'urgent', 'quick start', 'asap'],
+        'no_qualifications': ['no experience', 'no skills', 'no background'],
+        'upfront_payment': ['payment', 'fee', 'deposit', 'training materials']
+    }
+    
+    for flag_name, patterns in scam_patterns.items():
+        if any(pattern in text for pattern in patterns):
+            scam_score += 0.2
+            red_flags.append(flag_name)
+    
+    # Legitimate indicators
+    legit_indicators = ['bachelor', 'degree', 'experience', 'salary', 'benefits', 'requirements']
+    legit_score = sum(0.05 for indicator in legit_indicators if indicator in text)
+    
+    final_score = max(0.1, scam_score - legit_score)
+    
+    return {
+        'prediction': 'fake' if final_score > 0.3 else 'real',
+        'confidence': max(0.3, final_score),
+        'red_flags': red_flags,
+        'reasoning': f"Simple analysis: {len(red_flags)} red flags detected"
+    }
+
+def parse_rag_single_output(output):
+    """Parse the output from rag_single.py into our standard format"""
+    print(f"🔍 Parsing RAG output: {output}")
+    
+    # Default values
+    prediction = 'real'
+    confidence = 0.5
+    reasoning_lines = []
+    
+    lines = output.strip().split('\n')
+    
+    # Parse the output more flexibly
+    in_reasons_section = False
+    
+    for line in lines:
+        line = line.strip()
+        
+        # Check for verdict (case insensitive, flexible formatting)
+        if re.search(r'(?i)^\s*verdict\s*:\s*(fake|real)', line):
+            verdict_match = re.search(r'(?i)(fake|real)', line)
+            if verdict_match:
+                verdict_text = verdict_match.group(1).lower()
+                prediction = 'fake' if 'fake' in verdict_text else 'real'
+                print(f"🎯 Detected {prediction.upper()} verdict")
+        
+        # Check for reasons section
+        elif re.search(r'(?i)^\s*reasons?\s*:', line):
+            in_reasons_section = True
+            continue
+        
+        # If we're in reasons section, collect bullet points
+        elif in_reasons_section:
+            if line and (line.startswith('-') or line.startswith('•') or line.startswith('*')):
+                # Clean the reason line
+                clean_line = re.sub(r'^[\-\•\*]\s*', '', line).strip()
+                if clean_line and len(clean_line) > 3:  # Only add substantial reasons
+                    reasoning_lines.append(clean_line)
+                    print(f"📝 Added reason: {clean_line}")
+            elif line and not reasoning_lines:
+                # Some models might not use bullet points consistently
+                reasoning_lines.append(line)
+                print(f"📝 Added reason (no bullet): {line}")
+            elif not line and reasoning_lines:
+                # Empty line after reasons might indicate end of section
+                break
+    
+    # Build reasoning text
+    if reasoning_lines:
+        reasoning = " • ".join(reasoning_lines[:3])  # Take top 3 reasons
+    else:
+        # Fallback: extract any meaningful lines that aren't verdict/reasons headers
+        fallback_reasons = []
+        for line in lines:
+            clean_line = line.strip()
+            if (clean_line and 
+                not re.search(r'(?i)^\s*verdict', clean_line) and 
+                not re.search(r'(?i)^\s*reasons', clean_line) and
+                len(clean_line) > 10):
+                fallback_reasons.append(clean_line)
+        
+        if fallback_reasons:
+            reasoning = " • ".join(fallback_reasons[:2])
+        else:
+            reasoning = "Analysis completed but no specific reasons provided"
+        print("⚠️ No structured reasons found, using fallback")
+    
+    # Calculate confidence based on analysis quality
+    if len(reasoning_lines) >= 2:
+        confidence = 0.85  # High confidence with multiple reasons
+    elif len(reasoning_lines) >= 1:
+        confidence = 0.70  # Medium confidence with at least one reason
+    else:
+        confidence = 0.55  # Low confidence with no specific reasons
+    
+    # Boost confidence for clear fake verdicts with reasons
+    if prediction == 'fake' and len(reasoning_lines) >= 1:
+        confidence = max(confidence, 0.80)
+    
+    print(f"🎯 Final: {prediction} with {confidence:.1%} confidence")
+    
+    # Extract red flags from reasoning
+    red_flags = extract_red_flags_from_reasoning(reasoning)
+    print(f"🚩 Red flags extracted: {red_flags}")
+    
+    return {
+        'prediction': prediction,
+        'confidence': confidence,
+        'reasoning': reasoning,
+        'red_flags': red_flags
+    }
+
+def extract_red_flags_from_reasoning(reasoning):
+    """Extract red flags from the reasoning text"""
+    red_flags = []
+    reasoning_lower = reasoning.lower()
+    
+    flag_patterns = {
+        'sensitive_info_request': ['ssn', 'social security', 'bank', 'personal information', 'sensitive information', 'send ssn'],
+        'unrealistic_salary': ['high salary', 'unrealistic', 'extremely high', 'implausible', '$8000', '$9000', '$10000', 'too good to be true'],
+        'personal_contact': ['gmail', 'yahoo', 'hotmail', 'personal email', '@gmail.com'],
+        'urgency_tactics': ['urgent', 'immediately', 'quick start', 'asap', 'right away'],
+        'no_qualifications': ['no experience', 'no skills', 'no qualifications', 'no background'],
+        'upfront_payment': ['payment', 'fee', 'deposit', 'pay money', 'upfront'],
+        'work_from_home_scam': ['work from home', 'remote work with high pay', 'data entry from home'],
+        'vague_company': ['vague', 'no company', 'missing details', 'fraudulent', 'legitimate company'],
+        'poor_grammar': ['poor grammar', 'spelling errors', 'unprofessional'],
+        'money_transfer': ['money transfer', 'wire transfer', 'western union']
+    }
+    
+    for flag_name, patterns in flag_patterns.items():
+        if any(pattern in reasoning_lower for pattern in patterns):
+            red_flags.append(flag_name)
+    
+    return red_flags
+
 @app.route('/')
 def home():
     return render_template_string(PROFESSIONAL_HTML)
+
+@app.route('/analyze-status')
+@cross_origin()
+def analyze_status():
+    """Check status of long-running analyses"""
+    return jsonify({
+        'active_analyses': len(long_running_analyses),
+        'analyses': long_running_analyses
+    })
+
+@app.after_request
+def after_request(response):
+    """Add CORS headers to all responses"""
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
 
 @app.route('/analyze', methods=['POST', 'OPTIONS'])
 @cross_origin()
@@ -744,6 +911,13 @@ def analyze_job():
     # Handle preflight OPTIONS request
     if request.method == 'OPTIONS':
         return jsonify({'status': 'ok'}), 200
+    # Handle preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    
+    print("🎯 ANALYZE ENDPOINT HIT!")
+    print(f"📧 Headers: {dict(request.headers)}")
+    print(f"🔍 Source: {request.json.get('source', 'unknown')}")
     
     job_text = request.json.get('job_text', '')
     
@@ -756,66 +930,89 @@ def analyze_job():
     try:
         start_time = time.time()
         
-                # Use the Accurate RAG system for better precision
-        result = subprocess.run([
-            'python3', '-c', 
-            f'''
-from fix_rag_accuracy import AccurateJobScamRAG
-import sys
-rag = AccurateJobScamRAG()
-result = rag.analyze_job_enhanced(sys.argv[1])
-print(f"PREDICTION:{{result["prediction"]}}")
-print(f"CONFIDENCE:{{result["confidence"]}}")
-print(f"REASONING:{{result["reasoning"]}}")
-print(f"RED_FLAGS:{{",".join(result["red_flags"])}}")
-            ''',
-            job_text[:2000]  # Limit text length
-        ], capture_output=True, text=True, timeout=30)
+        print(f"🔍 Analyzing job text (length: {len(job_text)})")
+        
+        # Use the new RAG single model
+        parsed_result = None
+        try:
+            # Add the scripts directory to Python path
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            scripts_dir = os.path.join(current_dir, 'scripts')
+            
+            print(f"📁 Current directory: {current_dir}")
+            print(f"📁 Scripts directory: {scripts_dir}")
+            
+            rag_script_path = os.path.join(scripts_dir, 'rag_single.py')
+            print(f"📄 RAG script path: {rag_script_path}")
+            print(f"✅ Script exists: {os.path.exists(rag_script_path)}")
+            
+            # Use subprocess to call the rag_single.py script
+            print("🔄 Calling rag_single.py...")
+            
+            # Use the full job text for better analysis
+            result = subprocess.run([
+                'python3', rag_script_path,
+                '--text', job_text
+            ], capture_output=True, text=True, timeout=None, cwd=scripts_dir)
+            
+            print(f"📊 Subprocess return code: {result.returncode}")
+            print(f"📄 STDOUT length: {len(result.stdout)}")
+            print(f"📄 STDOUT preview: {result.stdout[:500]}...")
+            print(f"❌ STDERR: {result.stderr}")
+            
+            if result.returncode == 0 and result.stdout.strip():
+                print("✅ Successfully got output from rag_single.py")
+                output = result.stdout.strip()
+                parsed_result = parse_rag_single_output(output)
+                parsed_result['method'] = 'RAG Single LLM'
+            else:
+                print("❌ rag_single.py failed or returned empty output")
+                raise Exception(f"Script failed: {result.stderr}")
+                
+        except subprocess.TimeoutExpired:
+            print("⏰ rag_single.py timed out")
+            parsed_result = simple_analysis(job_text)
+            parsed_result['method'] = 'timeout_fallback'
+            
+        except Exception as e:
+            print(f"❌ RAG single analysis failed: {e}")
+            parsed_result = simple_analysis(job_text)
+            parsed_result['method'] = 'error_fallback'
+        
+        # If we still don't have a result, use fallback
+        if parsed_result is None:
+            print("❌ No result from any method, using ultimate fallback")
+            parsed_result = simple_analysis(job_text)
+            parsed_result['method'] = 'ultimate_fallback'
         
         processing_time = time.time() - start_time
         analysis_stats['total_analysis_time'] += processing_time
         
-        # Parse the output
-        output = result.stdout.strip()
-        prediction = 'real'
-        confidence = 0.5
-        reasoning = "Analysis completed"
-        red_flags = []
-        
-        for line in output.split('\n'):
-            if line.startswith('PREDICTION:'):
-                prediction = line.replace('PREDICTION:', '').strip()
-            elif line.startswith('CONFIDENCE:'):
-                confidence = float(line.replace('CONFIDENCE:', '').strip())
-            elif line.startswith('REASONING:'):
-                reasoning = line.replace('REASONING:', '').strip()
-            elif line.startswith('RED_FLAGS:'):
-                flags = line.replace('RED_FLAGS:', '').strip()
-                red_flags = flags.split(',') if flags else []
+        print(f"📊 Final result: {parsed_result['prediction']} with {parsed_result['confidence']:.1%} confidence")
+        print(f"🔧 Method: {parsed_result.get('method', 'unknown')}")
+        print(f"⏱️ Processing time: {processing_time:.1f}s")
         
         # Update scam detection count
-        if prediction == 'fake':
+        if parsed_result['prediction'] == 'fake':
             analysis_stats['scams_detected'] += 1
             
-        # Track common patterns in reasoning
-        if 'unrealistic_salary' in red_flags:
-            analysis_stats['common_patterns']['unrealistic_salary'] = analysis_stats['common_patterns'].get('unrealistic_salary', 0) + 1
-        if 'personal_contact' in red_flags:
-            analysis_stats['common_patterns']['personal_contact'] = analysis_stats['common_patterns'].get('personal_contact', 0) + 1
-        if 'sensitive_info_request' in red_flags:
-            analysis_stats['common_patterns']['sensitive_info_request'] = analysis_stats['common_patterns'].get('sensitive_info_request', 0) + 1
+        # Track common patterns
+        for flag in parsed_result.get('red_flags', []):
+            analysis_stats['common_patterns'][flag] = analysis_stats['common_patterns'].get(flag, 0) + 1
             
         return jsonify({
-            'prediction': prediction,
-            'confidence': confidence,
-            'reasoning': reasoning,
-            'red_flags': red_flags,
-            'analysis_time': round(processing_time, 2)
+            'prediction': parsed_result['prediction'],
+            'confidence': float(parsed_result['confidence']),
+            'reasoning': parsed_result.get('reasoning', 'No reasoning provided'),
+            'red_flags': parsed_result.get('red_flags', []),
+            'analysis_time': round(processing_time, 2),
+            'method': parsed_result.get('method', 'unknown')
         })
         
-    except subprocess.TimeoutExpired:
-        return jsonify({'error': 'Analysis timed out. Please try a shorter job description.'})
     except Exception as e:
+        print(f"❌ Analysis error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': f'Analysis failed: {str(e)}'})
 
 @app.route('/analyze-batch', methods=['POST'])
@@ -856,7 +1053,7 @@ def analyze_batch_jobs():
         
         # Save submission record
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        results_df.to_csv(f'../results/user_submissions/batch_analysis_{timestamp}.csv', index=False)
+        results_df.to_csv(f'results/batch_analysis_{timestamp}.csv', index=False)
         
         return send_file(
             io.BytesIO(output.getvalue().encode()),
@@ -901,8 +1098,7 @@ def api_analyze():
         return jsonify({'error': 'job_text is required'}), 400
     
     # Call the analysis function
-    response = analyze_job()
-    return response
+    return analyze_job()
 
 if __name__ == '__main__':
     print("🚀 Starting JobTrust AI - Professional Job Scam Detector")
