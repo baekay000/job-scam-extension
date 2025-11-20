@@ -1,43 +1,49 @@
-// Background script for extension management
-chrome.runtime.onInstalled.addListener(() => {
-    console.log('JobTrust AI extension installed');
-});
+// Background script for JobTrust AI
+console.log('JobTrust AI background script loaded');
 
-// Listen for messages from content scripts and popup
+// Handle messages from content scripts and popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    console.log('Background: Received message', request.action);
+    
     if (request.action === 'analyzeJob') {
-        analyzeJob(request.jobText)
-            .then(result => {
-                // Add job title to result for verification
-                result.jobTitle = request.jobTitle;
-                result.jobCompany = request.jobCompany;
-                sendResponse(result);
-            })
-            .catch(error => sendResponse({ error: error.message }));
-        return true; // Will respond asynchronously
-    }
-});
-
-async function analyzeJob(jobText) {
-    try {
-        const response = await fetch('http://localhost:5001/analyze', {
+        console.log('Background: Analyzing job posting, text length:', request.jobText?.length);
+        
+        // Make the API call from background script (not subject to CSP)
+        fetch('http://localhost:5001/analyze', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                job_text: jobText,
-                source: 'browser_extension'
+                job_text: request.jobText,
+                source: request.source || 'browser_extension'
             })
+        })
+        .then(response => {
+            console.log('Background: API response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Background: Analysis completed successfully');
+            sendResponse(data);
+        })
+        .catch(error => {
+            console.error('Background: Analysis failed:', error);
+            sendResponse({ 
+                error: error.message,
+                prediction: 'error',
+                confidence: 0,
+                reasoning: 'Unable to analyze job posting. Please ensure the local server is running on port 5001.'
+            });
         });
-
-        if (!response.ok) {
-            throw new Error('Analysis service unavailable');
-        }
-
-        return await response.json();
-    } catch (error) {
-        console.error('Analysis error:', error);
-        throw new Error('Failed to connect to analysis service');
+        
+        return true; // Keep message channel open for async response
     }
-}
+});
+
+chrome.runtime.onInstalled.addListener(() => {
+    console.log('JobTrust AI extension installed');
+});
