@@ -10,11 +10,13 @@
   ],
   "host_permissions": [
     "http://localhost:5001/*",
-    "https://*.linkedin.com/*",
-    "https://*.indeed.com/*",
-    "https://*.glassdoor.com/*",
-    "https://*.monster.com/*",
-    "https://*.ziprecruiter.com/*"
+    "https://localhost:5001/*",
+    "https://*.linkedin.com/jobs/*",
+    "https://*.indeed.com/viewjob*",
+    "https://*.indeed.com/job/*",
+    "https://*.glassdoor.com/Job/*",
+    "https://*.ziprecruiter.com/jobs/*",
+    "https://*.monster.com/jobs/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -34,8 +36,8 @@
         "https://*.ziprecruiter.com/*"
       ],
       "js": ["content.js"],
-      "css": ["content.css"],
-      "run_at": "document_end"
+      "run_at": "document_end",
+      "all_frames": false
     }
   ],
   "background": {
@@ -45,5 +47,8 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://localhost:5001 https://localhost:5001"
   }
 }
